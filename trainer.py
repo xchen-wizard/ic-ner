@@ -191,8 +191,8 @@ class Trainer:
                     'input_ids': batch[0],
                     'attention_mask': batch[1],
                     'intent_label_ids': batch[3] if self.args.task in ['joint', 'intent'] else None,
-                    'slot_labels_ids': batch[4],
-                } if self.args.task in ['joint', 'slot'] else None,
+                    'slot_labels_ids': batch[4] if self.args.task in ['joint', 'slot'] else None,
+                }
                 if self.args.model_type != 'distilbert':
                     inputs['token_type_ids'] = batch[2]
                 outputs = self.model(**inputs)
@@ -202,43 +202,47 @@ class Trainer:
             nb_eval_steps += 1
 
             # Intent prediction
-            if intent_preds is None:
-                intent_preds = intent_logits.detach().cpu().numpy()
-                out_intent_label_ids = inputs['intent_label_ids'].detach(
-                ).cpu().numpy()
-            else:
-                intent_preds = np.append(
-                    intent_preds, intent_logits.detach().cpu().numpy(), axis=0,
-                )
-                out_intent_label_ids = np.append(
-                    out_intent_label_ids, inputs['intent_label_ids'].detach().cpu().numpy(), axis=0,
-                )
+            if self.args.task in ['joint', 'intent']:
+                if intent_preds is None:
+                    intent_preds = intent_logits.detach().cpu().numpy()
+                    out_intent_label_ids = inputs['intent_label_ids'].detach(
+                    ).cpu().numpy()
+                else:
+                    intent_preds = np.append(
+                        intent_preds, intent_logits.detach().cpu().numpy(), axis=0,
+                    )
+                    out_intent_label_ids = np.append(
+                        out_intent_label_ids, inputs['intent_label_ids'].detach().cpu().numpy(), axis=0,
+                    )
 
             # Slot prediction
-            if slot_preds is None:
-                if self.args.use_crf:
-                    # decode() in `torchcrf` returns list with best index directly
-                    slot_preds = np.array(self.model.crf.decode(slot_logits))
-                else:
-                    slot_preds = slot_logits.detach().cpu().numpy()
-
-                out_slot_labels_ids = inputs['slot_labels_ids'].detach(
-                ).cpu().numpy()
-            else:
-                if self.args.use_crf:
-                    slot_preds = np.append(
-                        slot_preds, np.array(
+            if self.args.task in ['joint', 'slot']:
+                if slot_preds is None:
+                    if self.args.use_crf:
+                        # decode() in `torchcrf` returns list with best index directly
+                        slot_preds = np.array(
                             self.model.crf.decode(slot_logits),
-                        ), axis=0,
-                    )
-                else:
-                    slot_preds = np.append(
-                        slot_preds, slot_logits.detach().cpu().numpy(), axis=0,
-                    )
+                        )
+                    else:
+                        slot_preds = slot_logits.detach().cpu().numpy()
 
-                out_slot_labels_ids = np.append(
-                    out_slot_labels_ids, inputs['slot_labels_ids'].detach().cpu().numpy(), axis=0,
-                )
+                    out_slot_labels_ids = inputs['slot_labels_ids'].detach(
+                    ).cpu().numpy()
+                else:
+                    if self.args.use_crf:
+                        slot_preds = np.append(
+                            slot_preds, np.array(
+                                self.model.crf.decode(slot_logits),
+                            ), axis=0,
+                        )
+                    else:
+                        slot_preds = np.append(
+                            slot_preds, slot_logits.detach().cpu().numpy(), axis=0,
+                        )
+
+                    out_slot_labels_ids = np.append(
+                        out_slot_labels_ids, inputs['slot_labels_ids'].detach().cpu().numpy(), axis=0,
+                    )
 
         eval_loss = eval_loss / nb_eval_steps
         results = {
@@ -246,22 +250,29 @@ class Trainer:
         }
 
         # Intent result
-        intent_preds = np.argmax(intent_preds, axis=1)
+        if self.args.task in ['joint', 'intent']:
+            intent_preds = np.argmax(intent_preds, axis=1)
 
         # Slot result
-        if not self.args.use_crf:
-            slot_preds = np.argmax(slot_preds, axis=2)
-        slot_label_map = {i: label for i, label in self.slot_labels_dict}
-        out_slot_label_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
-        slot_preds_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
-
-        for i in range(out_slot_labels_ids.shape[0]):
-            for j in range(out_slot_labels_ids.shape[1]):
-                if out_slot_labels_ids[i, j] != self.ignore_index:
-                    out_slot_label_list[i].append(
-                        slot_label_map[out_slot_labels_ids[i][j]],
-                    )
-                    slot_preds_list[i].append(slot_label_map[slot_preds[i][j]])
+        if self.args.task in ['joint', 'slot']:
+            if not self.args.use_crf:
+                slot_preds = np.argmax(slot_preds, axis=2)
+            slot_label_map = {
+                i: label for label,
+                i in self.slot_labels_dict.items()
+            }
+            out_slot_label_list = [[]
+                                   for _ in range(out_slot_labels_ids.shape[0])]
+            slot_preds_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
+            for i in range(out_slot_labels_ids.shape[0]):
+                for j in range(out_slot_labels_ids.shape[1]):
+                    if out_slot_labels_ids[i, j] != self.ignore_index:
+                        out_slot_label_list[i].append(
+                            slot_label_map[out_slot_labels_ids[i][j]],
+                        )
+                        slot_preds_list[i].append(
+                            slot_label_map[slot_preds[i][j]],
+                        )
 
         total_result = compute_metrics(
             intent_preds, out_intent_label_ids, slot_preds_list, out_slot_label_list,

@@ -124,19 +124,21 @@ def set_seed(args):
 
 
 def compute_metrics(intent_preds, intent_labels, slot_preds, slot_labels):
-    assert len(intent_preds) == len(intent_labels) == len(
-        slot_preds,
-    ) == len(slot_labels)
+    # assert len(intent_preds) == len(intent_labels) == len(
+    #     slot_preds,
+    # ) == len(slot_labels)
     results = {}
-    intent_result = get_intent_acc(intent_preds, intent_labels)
-    slot_result = get_slot_metrics(slot_preds, slot_labels)
-    sementic_result = get_sentence_frame_acc(
-        intent_preds, intent_labels, slot_preds, slot_labels,
-    )
+    if intent_labels and intent_preds:
+        intent_result = get_intent_acc(intent_preds, intent_labels)
+        results.update(intent_result)
 
-    results.update(intent_result)
-    results.update(slot_result)
-    results.update(sementic_result)
+    if slot_preds and slot_labels:
+        slot_result = get_slot_metrics(slot_preds, slot_labels)
+        results.update(slot_result)
+    # sementic_result = get_sentence_frame_acc(
+    #     intent_preds, intent_labels, slot_preds, slot_labels,
+    # )
+    # results.update(sementic_result)
 
     return results
 
