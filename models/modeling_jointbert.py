@@ -65,7 +65,7 @@ class JointBERT(BertPreTrainedModel):
                 slot_loss = -1 * slot_loss  # negative log-likelihood
             else:
                 slot_loss_fct = nn.CrossEntropyLoss(
-                    ignore_index=self.args.ignore_index,
+                    ignore_index=self.args.ignore_index,  # ignore special tokens in calc loss
                 )
                 # Only keep active parts of the loss
                 if attention_mask is not None:

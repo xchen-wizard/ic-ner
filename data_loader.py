@@ -87,9 +87,13 @@ class Processor:
                 slot for slot_labels in slots if slot_labels is not None for slot in slot_labels
             ]
             self.slot_labels_dict = {
-                slot_label: idx for idx,
+                slot_label: idx + 1 for idx,  # make space for ignore_index = 0
                 slot_label in enumerate(set(slots_flat_list))
             }
+            # add a slot label for the cls, sep and pad tokens - only a problem when we use pytorch CRF which doesn't allow -100 as label id
+            if self.slot_labels_dict:
+                self.slot_labels_dict['PAD'] = self.args.ignore_index
+
             # cast to json files
             with open(os.path.join(self.args.data_dir, 'intent_labels_dict.json'), 'w') as f:
                 json.dump(self.intent_labels_dict, f)
@@ -141,11 +145,13 @@ def convert_examples_to_features(
     examples, max_seq_len, tokenizer,
     intent_labels_dict={},
     slot_labels_dict={},
-    ignore_index=-100,
+    ignore_index=0,
     cls_token_segment_id=0,
     pad_token_segment_id=0,
     sequence_a_segment_id=0,
     mask_padding_with_zero=True,
+    # mark the initial wp with the label from the token, if False mark all wps with the label
+    align_label_with_intial=True,
 ):
     logger.info(f'intent_labels_dict: {intent_labels_dict}')
     logger.info(f'slot_labels_dict: {slot_labels_dict}')
@@ -183,7 +189,8 @@ def convert_examples_to_features(
                 slot_label_id = slot_labels_dict[slot_label]
                 # tag the first wp only, ignore_index for the rest
                 slot_labels_ids.extend(
-                    [slot_label_id] + [ignore_index] * (len(wps) - 1),
+                    [slot_label_id] + [ignore_index] * (len(wps) - 1)
+                    if align_label_with_intial else [slot_label_id] * len(wps),
                 )
             # truncate or pad and add trailing sep token
             if len(input_ids) > max_seq_len - 1:
@@ -246,8 +253,10 @@ def load_examples(args, tokenizer, mode):
         examples=examples,
         max_seq_len=args.max_seq_len,
         tokenizer=tokenizer,
+        ignore_index=args.ignore_index,
         intent_labels_dict=processor.intent_labels_dict,
         slot_labels_dict=processor.slot_labels_dict,
+        align_label_with_intial=args.align_label_with_intial,
     )
 
     # Convert to Tensors and build dataset

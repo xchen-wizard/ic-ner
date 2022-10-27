@@ -136,7 +136,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--ignore_index', default=-100, type=int,
+        '--ignore_index', default=0, type=int,
         help='Specifies a target value that is ignored and does not contribute to the input gradient',
     )
 
@@ -165,6 +165,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--model_dir', type=str, default='./',
         help='dir to save checkpoints',
+    )
+    parser.add_argument(
+        '--align_label_with_initial', default=True, type=bool,
+        help='True to align the label with the first wp in the token, else to use the same label for all wps in token',
     )
 
     args = parser.parse_args()
