@@ -191,7 +191,8 @@ def get_slot_metrics(preds, labels):
 
 
 def get_intent_acc(preds, labels):
-    acc = (preds == labels).mean()
+    acc = sum(p == l for p, l in zip(preds, labels)) / len(labels)
+    # acc = (preds == labels).mean()
     return {
         'intent_acc': acc,
     }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -252,10 +253,23 @@ class Trainer:
         }
 
         # Intent result
+        intent_labels = None
         if self.args.task in ['joint', 'intent']:
             intent_preds = np.argmax(intent_preds, axis=1)
+            # convert id to actual labels
+            intent_label_map = {
+                i: label for label,
+                i in self.intent_labels_dict.items()
+            }
+            intent_preds = [intent_label_map[idx] for idx in intent_preds]
+            intent_labels = [
+                intent_label_map[idx]
+                for idx in out_intent_label_ids
+            ]
 
         # Slot result
+        out_slot_label_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
+        slot_preds_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
         if self.args.task in ['joint', 'slot']:
             if not self.args.use_crf:
                 slot_preds = np.argmax(slot_preds, axis=2)
@@ -263,9 +277,6 @@ class Trainer:
                 i: label for label,
                 i in self.slot_labels_dict.items()
             }
-            out_slot_label_list = [[]
-                                   for _ in range(out_slot_labels_ids.shape[0])]
-            slot_preds_list = [[] for _ in range(out_slot_labels_ids.shape[0])]
             for i in range(out_slot_labels_ids.shape[0]):
                 for j in range(out_slot_labels_ids.shape[1]):
                     if out_slot_labels_ids[i, j] != self.ignore_index:
@@ -277,8 +288,20 @@ class Trainer:
                         )
 
         total_result = compute_metrics(
-            intent_preds, out_intent_label_ids, slot_preds_list, out_slot_label_list,
+            intent_preds, intent_labels, slot_preds_list, out_slot_label_list,
         )
+        # save slot_preds_list and out_slot_label_list
+        if mode == 'test' and self.args.save_preds:
+            logger.info('saving preds...')
+            with open(os.path.join(self.args.model_dir, 'preds.json'), 'w') as f:
+                json.dump(
+                    {
+                        'slot_preds': slot_preds_list,
+                        'slot_labels': out_slot_label_list,
+                        'intent_preds': intent_preds,
+                        'intent_labels': intent_labels,
+                    }, f,
+                )
         results.update(total_result)
 
         logger.info('***** Eval results *****')

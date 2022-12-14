@@ -184,6 +184,10 @@ if __name__ == '__main__':
         '--add_speaker_tokens', action='store_true',
         help='whether to add speaker tokens to the special tokens vocab',
     )
+    parser.add_argument(
+        '--save_preds', action='store_true',
+        help='whether to save preds for test data',
+    )
 
     args = parser.parse_args()
     main(args)
