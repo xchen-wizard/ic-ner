@@ -15,11 +15,21 @@ def main(args):
         set_seed(args)
     tokenizer = load_tokenizer(args)
 
+    # add special token speaker tags into the vocab
+    if args.add_speaker_tokens:
+        tokenizer.add_special_tokens(
+            {'additional_special_tokens': ['[AGENT]', '[USER]']},
+        )
+    # reminder: model needs to resize embedding size too!
+
     train_dataset = load_examples(args, tokenizer, mode='train')
     val_dataset = load_examples(args, tokenizer, mode='validation')
     test_dataset = load_examples(args, tokenizer, mode='test')
 
-    trainer = Trainer(args, train_dataset, val_dataset, test_dataset)
+    trainer = Trainer(
+        args, train_dataset, val_dataset,
+        test_dataset, len(tokenizer),
+    )
 
     if args.do_train:
         trainer.train()
@@ -54,7 +64,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--slot_label_style', default='prodigy', type=str,
-        choices=['prodigy', 'bio'], help='slot label style: prodigy or bio',
+        choices=['prodigy', 'bio', 'amazon'], help='slot label style: prodigy or bio or amazon',
     )
     parser.add_argument(
         '--model_type', required=True, type=str,
@@ -167,8 +177,12 @@ if __name__ == '__main__':
         help='dir to save checkpoints',
     )
     parser.add_argument(
-        '--align_label_with_initial', default=True, type=bool,
+        '--align_label_with_initial', action='store_true',
         help='True to align the label with the first wp in the token, else to use the same label for all wps in token',
+    )
+    parser.add_argument(
+        '--add_speaker_tokens', action='store_true',
+        help='whether to add speaker tokens to the special tokens vocab',
     )
 
     args = parser.parse_args()

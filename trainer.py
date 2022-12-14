@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    def __init__(self, args, train_dataset=None, val_dataset=None, test_dataset=None):
+    def __init__(self, args, train_dataset=None, val_dataset=None, test_dataset=None, vocab_size=None):
         self.args = args
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
@@ -31,7 +31,7 @@ class Trainer:
 
         self.intent_labels_dict = get_intent_labels_dict(args)
         self.slot_labels_dict = get_slot_labels_dict(args)
-        self.ignore_index = -100  # torch.nn.CrossEntropyLoss().ignore_index
+        self.ignore_index = self.args.ignore_index
 
         self.config_class, self.model_class, _ = MODEL_CLASSES[args.model_type]
         self.config = self.config_class.from_pretrained(
@@ -44,6 +44,8 @@ class Trainer:
             intent_labels_dict=self.intent_labels_dict,
             slot_labels_dict=self.slot_labels_dict,
         )
+        if args.add_speaker_tokens:
+            self.model.resize_token_embeddings(vocab_size)
         # GPU or CPU
         self.device = 'cuda' if torch.cuda.is_available() and not args.no_cuda else 'cpu'
         self.model.to(self.device)

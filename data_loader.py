@@ -12,6 +12,7 @@ import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
 
+from utils import convert_amazon_tags_to_BIO
 from utils import convert_prodigy_tags_to_BIO
 from utils import get_intent_labels_dict
 from utils import get_slot_labels_dict
@@ -63,7 +64,10 @@ class Processor:
             df = pd.read_csv(input_file)
         return df
 
-    def _create_examples(self, texts: list[str], intents: list[str] | list[None], slots: list[list[str]] | list[dict] | list[None], mode: str):
+    def _create_examples(
+        self, texts: list[str], intents: list[str] | list[None],
+        slots: list[list[str]] | list[dict] | list[None] = [None], mode: str = 'train',
+    ):
         """
         update the intent_labels_dict and slot_labels_dict with key (label), value (id)
         return a list of InputExample objects
@@ -73,6 +77,9 @@ class Processor:
             tokens_list, slots = convert_prodigy_tags_to_BIO(
                 texts, slots,  # type: ignore
             )
+        elif self.args.slot_label_style == 'amazon':
+            # parse Amazon style slot annotation
+            tokens_list, slots = convert_amazon_tags_to_BIO(texts)
         else:  # bio format or intents only
             tokens_list = [text.strip().split() for text in texts]
 
@@ -151,8 +158,27 @@ def convert_examples_to_features(
     sequence_a_segment_id=0,
     mask_padding_with_zero=True,
     # mark the initial wp with the label from the token, if False mark all wps with the label
-    align_label_with_intial=True,
+    align_label_with_initial=True,
 ):
+    """
+    convert raw strings into token ids and relevant meta data for model training
+    padding!!! be sure you truncate from left!
+    Args:
+        examples:
+        max_seq_len:
+        tokenizer:
+        intent_labels_dict:
+        slot_labels_dict:
+        ignore_index:
+        cls_token_segment_id:
+        pad_token_segment_id:
+        sequence_a_segment_id:
+        mask_padding_with_zero:
+        align_label_with_initial:
+
+    Returns:
+
+    """
     logger.info(f'intent_labels_dict: {intent_labels_dict}')
     logger.info(f'slot_labels_dict: {slot_labels_dict}')
     # Setting based on the current model type
@@ -190,17 +216,24 @@ def convert_examples_to_features(
                 # tag the first wp only, ignore_index for the rest
                 slot_labels_ids.extend(
                     [slot_label_id] + [ignore_index] * (len(wps) - 1)
-                    if align_label_with_intial else [slot_label_id] * len(wps),
+                    if align_label_with_initial else [slot_label_id] * len(wps),
                 )
-            # truncate or pad and add trailing sep token
+            # truncate or pad
+            # truncate from right to ensure that user says is included
+            # make sure CLS heads the seq and SEP ends the seq
+            # ToDo: what do you do if user says exceeds the max_seq_len?
             if len(input_ids) > max_seq_len - 1:
-                input_ids = input_ids[:max_seq_len - 1] + [sep_token_id]
-                slot_labels_ids = slot_labels_ids[:max_seq_len - 1] \
+                input_ids = input_ids[1 - max_seq_len:] + [sep_token_id]
+                slot_labels_ids = slot_labels_ids[1 - max_seq_len:] \
                     + [ignore_index]
+                if input_ids[0] != cls_token_id:
+                    # swap the first token with the CLS
+                    input_ids[0] = cls_token_id
+                    slot_labels_ids[0] = ignore_index
                 # sep_token is seq_a_type_id
-                token_type_ids = token_type_ids[:max_seq_len]
+                token_type_ids = token_type_ids[-max_seq_len:]
                 # sep_token is attended to
-                attention_mask = attention_mask[:max_seq_len]
+                attention_mask = attention_mask[-max_seq_len:]
             else:  # else pad
                 token_type_ids = token_type_ids + \
                     [sequence_a_segment_id] + [pad_token_segment_id] * \
@@ -256,7 +289,7 @@ def load_examples(args, tokenizer, mode):
         ignore_index=args.ignore_index,
         intent_labels_dict=processor.intent_labels_dict,
         slot_labels_dict=processor.slot_labels_dict,
-        align_label_with_intial=args.align_label_with_intial,
+        align_label_with_initial=args.align_label_with_initial,
     )
 
     # Convert to Tensors and build dataset

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import re
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -22,10 +23,12 @@ from transformers import DistilBertConfig
 from transformers import DistilBertTokenizer
 
 from models import JointBERT
+from models import JointTODBERT
 
 # from model import JointBERT, JointDistilBERT, JointAlbert
 MODEL_CLASSES = {
     'bert': (BertConfig, JointBERT, BertTokenizer),
+    'todbert': (BertConfig, JointTODBERT, BertTokenizer),
     # 'distilbert': (DistilBertConfig, JointDistilBERT, DistilBertTokenizer),
     # 'albert': (AlbertConfig, JointAlbert, AlbertTokenizer)
 }
@@ -34,6 +37,7 @@ MODEL_PATH_MAP = {
     'bert': 'bert-base-uncased',
     'distilbert': 'distilbert-base-uncased',
     'albert': 'albert-xxlarge-v1',
+    'todbert': 'TODBERT/TOD-BERT-JNT-V1',
 }
 
 
@@ -53,6 +57,40 @@ def init_logger():
         datefmt='%m/%d/%Y %H:%M:%S',
         level=logging.INFO,
     )
+
+
+def convert_amazon_tags_to_BIO(texts: list[str]) -> tuple[list[list[str]], list[list[str]]]:
+    """
+    Converts amazon style {mention:entity_type} into BIO format
+    Args:
+        texts:
+
+    Returns:
+        Tuple of list of tokens , list of tags
+    """
+    list_of_tokens, list_of_tags = [], []
+    for text in texts:
+        tokens, tags = [], []
+        o_start = 0
+        for m in re.finditer(r'{([\w\-@% ]+): ?([\w\- ]+)}', text):
+            o_tokens, o_tags = tag_tokens(
+                text=text[o_start:m.start()], tag='O',
+            )
+            entity_mention, entity_type = m.groups()
+            bi_tokens, bi_tags = tag_tokens(
+                text=entity_mention, tag=entity_type,
+            )
+            tokens.extend(o_tokens + bi_tokens)
+            tags.extend(o_tags + bi_tags)
+            o_start = m.end()
+        if o_start < len(text):  # more Os at end of text
+            o_toks, o_tags = tag_tokens(text[o_start:])
+            tokens.extend(o_toks)
+            tags.extend(o_tags)
+        assert len(tokens) == len(tags), f'{tokens}\n{tags}\nlen not the same!'
+        list_of_tokens.append(tokens)
+        list_of_tags.append(tags)
+    return list_of_tokens, list_of_tags
 
 
 def convert_prodigy_tags_to_BIO(texts: list[str], prodigy_tags: list[list[dict]]) -> tuple[list[list[str]], list[list[str]]]:
