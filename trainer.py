@@ -108,10 +108,11 @@ class Trainer:
 
         global_step = 0
         tr_loss = 0.0
+        min_va_loss = float('inf')
+        patience = self.args.patience
         self.model.zero_grad()
 
         train_iterator = trange(int(self.args.num_train_epochs), desc='Epoch')
-
         for _ in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc='Iteration')
             for step, batch in enumerate(epoch_iterator):
@@ -145,11 +146,25 @@ class Trainer:
                     self.model.zero_grad()
                     global_step += 1
 
+                    rslt = None
                     if self.args.logging_steps > 0 and global_step % self.args.logging_steps == 0:
-                        self.evaluate('validation')
+                        rslt = self.evaluate('validation')
+                        if rslt.get('loss') >= min_va_loss:
+                            if patience > 0:
+                                patience -= 1
+                            elif self.args.early_stopping:
+                                logger.info(f"""
+                                    loss is not decreasing after
+                                    {self.args.patience} x {self.args.logging_steps} steps. Stop training.
+                                """)
+                                return
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                        self.save_model()
+                        if rslt.get('loss') < min_va_loss:
+                            # only save model when loss is decreasing
+                            self.save_model()
+
+                    min_va_loss = min(rslt.get('loss'), min_va_loss)
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -279,6 +294,7 @@ class Trainer:
             }
             for i in range(out_slot_labels_ids.shape[0]):
                 for j in range(out_slot_labels_ids.shape[1]):
+                    # only append non-ignore_index to the predicted and actual sequence
                     if out_slot_labels_ids[i, j] != self.ignore_index:
                         out_slot_label_list[i].append(
                             slot_label_map[out_slot_labels_ids[i][j]],

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from utils import convert_amazon_tags_to_BIO
 from utils import convert_prodigy_tags_to_BIO
 
 logger = logging.getLogger()
@@ -26,5 +27,12 @@ def test_convert_prodigy_tags_to_BIO():
     list_of_tokens, list_of_tags = convert_prodigy_tags_to_BIO(
         texts, prodigy_tags,
     )
+    logger.info(list_of_tokens)
+    logger.info(list_of_tags)
+
+
+def test_convert_amazon_tags_to_BIO():
+    texts = ['{SALTED SALTED:Product}, {STRAWBERRY:Product}, {CHOCOLATE:Product}, {CHOCOLATE:Product}, {MANGO 24:Product} and {VEGAN MANGO:Product}']
+    list_of_tokens, list_of_tags = convert_amazon_tags_to_BIO(texts)
     logger.info(list_of_tokens)
     logger.info(list_of_tags)

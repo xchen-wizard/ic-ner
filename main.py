@@ -166,7 +166,11 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--early_stopping', action='store_true',
-        help='Whether to do early stopping',
+        help='Whether to do early stopping on va loss',
+    )
+    parser.add_argument(
+        '--patience', type=int,
+        default=5, help='patience for number of iterations before early stopping',
     )
     parser.add_argument(
         '--task', type=str, default='joint',
