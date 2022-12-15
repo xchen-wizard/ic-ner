@@ -213,6 +213,10 @@ def convert_examples_to_features(
                 attention_mask.extend([1] * len(wps))
                 # convert slot label to id: if a slot_label is not in existing slot_labels_dict
                 # treat it as an "O"
+                if slot_label not in slot_labels_dict:
+                    logger.warning(
+                        f'{slot_label} not seen before in training, will be treated as O',
+                    )
                 slot_label_id = slot_labels_dict.get(
                     slot_label, slot_labels_dict.get('O'),
                 )
