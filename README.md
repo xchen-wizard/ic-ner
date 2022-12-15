@@ -20,10 +20,12 @@ poetry run python main.py --text_column_name text \
 --slot_label_style amazon \
 --model_type bert \
 --max_seq_len 200 \
+--do_train \
 --do_eval \
 --task joint \
 --model_dir ./temp \
 --add_speaker_tokens \
---save_preds
---early_stopping
+--save_preds \
+--early_stopping \
+--align_label_with_initial
 ```

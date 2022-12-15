@@ -160,11 +160,19 @@ class Trainer:
                                 return
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                        if rslt.get('loss') < min_va_loss:
-                            # only save model when loss is decreasing
+                        if self.args.early_stopping:
+                            if rslt.get('loss') < min_va_loss:
+                                # only save model when loss is decreasing
+                                self.save_model()
+                            else:
+                                logger.info(
+                                    'skip saving model as va loss is not decreasing',
+                                )
+                        else:
                             self.save_model()
 
-                    min_va_loss = min(rslt.get('loss'), min_va_loss)
+                    if rslt:
+                        min_va_loss = min(rslt.get('loss'), min_va_loss)
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -309,7 +317,7 @@ class Trainer:
         # save slot_preds_list and out_slot_label_list
         if mode == 'test' and self.args.save_preds:
             logger.info('saving preds...')
-            with open(os.path.join(self.args.model_dir, 'preds.json'), 'w') as f:
+            with open(os.path.join(self.args.data_dir, 'preds.json'), 'w') as f:
                 json.dump(
                     {
                         'slot_preds': slot_preds_list,
