@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 
 from data_loader import load_examples
 from trainer import Trainer
@@ -10,7 +11,8 @@ from utils import set_seed
 
 
 def main(args):
-    init_logger()
+    logger = init_logger()
+    logger.info('=' * 10 + str(datetime.now()) + '=' * 10)
     if args.seed:
         set_seed(args)
     tokenizer = load_tokenizer(args)
