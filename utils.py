@@ -57,6 +57,9 @@ def init_logger():
         datefmt='%m/%d/%Y %H:%M:%S',
         level=logging.INFO,
     )
+    fh = logging.FileHandler('./log')
+    logger = logging.getLogger()
+    logger.addHandler(fh)
 
 
 def convert_amazon_tags_to_BIO(texts: list[str]) -> tuple[list[list[str]], list[list[str]]]:
