@@ -171,8 +171,9 @@ class Trainer:
                         else:
                             self.save_model()
 
-                    if rslt:
-                        min_va_loss = min(rslt.get('loss'), min_va_loss)
+                    if rslt and rslt.get('loss') < min_va_loss:
+                        min_va_loss = rslt.get('loss')
+                        patience = self.args.patience  # reset patience
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
