@@ -147,6 +147,7 @@ def tag_tokens(text: str, tag: str = 'O'):
         return (tokens, [tag] * len(tokens))
     else:
         # do B- I- on tokens
+        tag = tag.lower()  # normalize tag type
         tags = ['B-' + tag]
         for i in range(1, len(tokens)):
             tags.append('I-' + tag)

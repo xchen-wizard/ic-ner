@@ -211,8 +211,11 @@ def convert_examples_to_features(
                 input_ids.extend(wps)
                 token_type_ids.extend([sequence_a_segment_id] * len(wps))
                 attention_mask.extend([1] * len(wps))
-                # convert slot label to id
-                slot_label_id = slot_labels_dict[slot_label]
+                # convert slot label to id: if a slot_label is not in existing slot_labels_dict
+                # treat it as an "O"
+                slot_label_id = slot_labels_dict.get(
+                    slot_label, slot_labels_dict.get('O'),
+                )
                 # tag the first wp only, ignore_index for the rest
                 slot_labels_ids.extend(
                     [slot_label_id] + [ignore_index] * (len(wps) - 1)
